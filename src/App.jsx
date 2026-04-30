@@ -626,7 +626,7 @@ Return ONLY valid JSON, no preamble, no markdown fences:
         <div className="flex items-center gap-4 text-xs text-zinc-400">
           <span className="text-zinc-400">Built by Westin Eehn</span>
           <a href="https://linkedin.com/in/westineehn" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-amber-400 transition-colors"><Linkedin className="w-3.5 h-3.5"/> LinkedIn</a>
-          <a href="https://github.com/westineehn/helix-cx" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-amber-400 transition-colors"><Github className="w-3.5 h-3.5"/> Source</a>
+          <a href="https://github.com/westineehn/helix-cx-local" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-amber-400 transition-colors"><Github className="w-3.5 h-3.5"/> Source</a>
         </div>
       </header>
 
