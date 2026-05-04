@@ -774,7 +774,7 @@ Return ONLY valid JSON, no preamble, no markdown fences:
 
                 {news&&!loadingNews&&(<>
                   {newsStale&&<p className="text-[10px] text-amber-400/60 mb-1.5">⚠ Fetched {hoursAgo(news.fetchedAt)}h ago</p>}
-                  <p className="text-[11px] text-zinc-300 leading-relaxed mb-2">{news.summary}</p>
+                  <div className="text-[11px] text-zinc-300 leading-relaxed mb-2 whitespace-pre-line">{news.summary}</div>
                   <div className="space-y-1">
                     {news.articles.map((a,i)=>(
                       <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" className="flex items-start gap-1.5 text-[10px] text-zinc-500 hover:text-amber-400 transition-colors group">
