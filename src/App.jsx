@@ -238,7 +238,7 @@ const fromForm = (f) => {
     expansion: { historyArr: Number(expansion.historyArr)||0, historyNote: expansion.historyNote||'', signals: expansion.signals||'' },
     relationship: { championStable: relationship.championStable===true||relationship.championStable==='true', recentChanges: relationship.recentChanges||'' },
     external: f.external || '',
-    renewal: { probability: renewal.probability||'medium', contractType: renewal.contractType||'annual', autoRenew: renewal.autoRenew===true||renewal.autoRenew==='true'||false, competitiveExposure: renewal.competitiveExposure||'none', updatedAt: renewal.updatedAt||'' },
+    renewal: { probability: renewal.probability||'medium', contractType: renewal.contractType||'annual', autoRenew: renewal.autoRenew===true||renewal.autoRenew==='true'||false, competitiveExposure: renewal.competitiveExposure||'none', updatedAt: new Date().toISOString() },
   };
 };
 
@@ -579,6 +579,8 @@ Return ONLY valid JSON, no preamble, no markdown fences:
 
       const p2 = await callAnalyze([{role:'user',content:prompt2}]);
       setAnalysisMap(prev=>({...prev,[account.id]:{...prev[account.id],...p2}}));
+      const aiTs = new Date().toISOString();
+      setAccounts(prev=>prev.map(a=>a.id===account.id?{...a,renewal:{...a.renewal,updatedAt:aiTs}}:a));
     } catch(e) {
       setError(`Analysis failed: ${e.message}. Try again.`);
     } finally {
@@ -688,7 +690,7 @@ Return ONLY valid JSON, no preamble, no markdown fences:
                     <div className="border border-zinc-800 rounded p-4 mb-4 bg-zinc-900/20">
                       <div className="flex items-center justify-between mb-4">
                         <span className="text-[10px] uppercase tracking-widest text-zinc-400">Renewal Outlook</span>
-                        {r.updatedAt && <span className="text-[10px] text-zinc-400" style={{fontFamily:'JetBrains Mono, monospace'}}>Updated {r.updatedAt}</span>}
+                        <span className="text-[10px] text-zinc-400" style={{fontFamily:'JetBrains Mono, monospace'}}>Updated {fmtAge(r.updatedAt || __BUILD_TIME__)}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                         <div>
@@ -714,7 +716,7 @@ Return ONLY valid JSON, no preamble, no markdown fences:
                   );
                 })()}
                 <p className="text-sm text-zinc-300 leading-relaxed border-l-2 border-zinc-700 pl-3 mb-3">{tldr}</p>
-                {isStale&&<div className="flex items-center gap-2 text-xs text-amber-400/70 mb-3"><AlertCircle className="w-3.5 h-3.5"/><span>Analysis is {staleHours}h old — consider re-running.</span></div>}
+                {isStale&&<div className="flex items-center gap-2 text-xs text-amber-400/70 mb-3"><AlertCircle className="w-3.5 h-3.5"/><span>Analysis is {Math.round(staleHours/24)}d old — consider re-running.</span></div>}
                 {analysis?.immediateActions&&(
                   <div className="border border-zinc-800/60 rounded p-3 bg-zinc-900/20">
                     <div className="flex items-center gap-2 mb-2"><Clock className="w-3 h-3 text-zinc-400"/><span className="text-[10px] uppercase tracking-widest text-zinc-400">Action Items · {fmtDate(analysis.analyzedAt)}</span></div>
@@ -773,7 +775,7 @@ Return ONLY valid JSON, no preamble, no markdown fences:
                 {loadingNews&&<div className="flex items-center gap-2 text-xs text-zinc-400"><Loader2 className="w-3 h-3 animate-spin"/>Fetching live news…</div>}
 
                 {news&&!loadingNews&&(<>
-                  {newsStale&&<p className="text-[10px] text-amber-400/60 mb-1.5">⚠ Fetched {hoursAgo(news.fetchedAt)}h ago</p>}
+                  {newsStale&&<p className="text-[10px] text-amber-400/60 mb-1.5">⚠ Fetched {fmtAge(news.fetchedAt)}</p>}
                   <div className="text-[11px] text-zinc-300 leading-relaxed mb-2 whitespace-pre-line">{news.summary}</div>
                   <div className="space-y-1">
                     {news.articles.map((a,i)=>(
