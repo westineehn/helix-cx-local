@@ -441,7 +441,16 @@ const callNews = async (company, industry) => {
 
 // ── Main ────────────────────────────────────────────────────────
 export default function HealthScoreEngine() {
-  const [accounts,setAccounts] = useState(()=>{try{const s=localStorage.getItem(STORAGE_ACCOUNTS);return s?JSON.parse(s):DEFAULT_ACCOUNTS;}catch{return DEFAULT_ACCOUNTS;}});
+  const [accounts, setAccounts] = useState([]);
+  const [accountsLoading, setAccountsLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/accounts')
+      .then(r => r.json())
+      .then(data => { setAccounts(data); setSelectedId(data[0]?.id); })
+      .catch(() => setAccounts(DEFAULT_ACCOUNTS))
+      .finally(() => setAccountsLoading(false));
+  }, []);
   const [analysisMap,setAnalysisMap] = useState(()=>{try{const s=localStorage.getItem(STORAGE_ANALYSIS);return s?JSON.parse(s):{};}catch{return {};}});
   const [newsMap,setNewsMap] = useState(()=>{try{const s=localStorage.getItem(STORAGE_NEWS);return s?JSON.parse(s):{};}catch{return {};}});
 
@@ -550,6 +559,11 @@ Return ONLY valid JSON, no preamble, no markdown fences:
       const p1 = await callAnalyze([{role:'user',content:prompt1}]);
       p1.analyzedAt = new Date().toISOString();
       setAnalysisMap(prev=>({...prev,[account.id]:{...(prev[account.id]||{}),...p1}}));
+      await fetch(`/api/analysis/${account.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(p1),
+      });
       setLoadingPhase('secondary');
 
       const prompt2 = `You are a Senior CS strategist. Be terse — keep all string values under 20 words. Risk flags and expansion signals MUST draw from all available data — usage trends, support load, engagement patterns, expansion history, relationship stability, AND external signals. Do not source everything from a single category.
@@ -579,6 +593,11 @@ Return ONLY valid JSON, no preamble, no markdown fences:
 
       const p2 = await callAnalyze([{role:'user',content:prompt2}]);
       setAnalysisMap(prev=>({...prev,[account.id]:{...prev[account.id],...p2}}));
+      await fetch(`/api/analysis/${account.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...analysisMap[account.id], ...p2 }),
+      });
       const aiTs = new Date().toISOString();
       setAccounts(prev=>prev.map(a=>a.id===account.id?{...a,renewal:{...a.renewal,updatedAt:aiTs}}:a));
     } catch(e) {
@@ -601,22 +620,41 @@ Return ONLY valid JSON, no preamble, no markdown fences:
     <div className="min-h-screen bg-zinc-950 text-zinc-100" style={{fontFamily:'IBM Plex Sans, system-ui, sans-serif'}}>
 
       {showPasswordModal&&<PasswordModal onSuccess={()=>setEditMode(true)} onClose={()=>setShowPasswordModal(false)}/>}
-      {editMode&&showAddModal&&<AccountFormModal title="Add Account" submitLabel="Add Account" onClose={()=>setShowAddModal(false)} onSubmit={(data)=>{const a={...data,id:Date.now()};setAccounts(prev=>[...prev,a]);setSelectedId(a.id);setShowAddModal(false);}}/>}
+      {editMode&&showAddModal&&<AccountFormModal title="Add Account" submitLabel="Add Account" onClose={()=>setShowAddModal(false)} onSubmit={async (data) => {
+  const res = await fetch('/api/accounts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const created = await res.json();
+  setAccounts(prev => [...prev, created]);
+  setSelectedId(created.id);
+  setShowAddModal(false);
+}}/>}
       {editMode&&editingAccount&&<AccountFormModal
         title={`Edit — ${editingAccount.name}`}
         submitLabel="Save Changes"
         initial={editingAccount}
         onClose={()=>setEditingAccount(null)}
-        onSubmit={(data)=>{setAccounts(prev=>prev.map(a=>a.id===editingAccount.id?{...data,id:editingAccount.id}:a));setEditingAccount(null);}}
-        onDelete={()=>{
-          if(window.confirm(`Delete ${editingAccount.name}? This cannot be undone.`)){
-            setAccounts(prev=>prev.filter(a=>a.id!==editingAccount.id));
-            setAnalysisMap(prev=>{const n={...prev};delete n[editingAccount.id];return n;});
-            setNewsMap(prev=>{const n={...prev};delete n[editingAccount.id];return n;});
-            setSelectedId(accounts.find(a=>a.id!==editingAccount.id)?.id);
-            setEditingAccount(null);
-          }
-        }}
+        onSubmit={async (data) => {
+  await fetch(`/api/accounts/${editingAccount.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  setAccounts(prev => prev.map(a => a.id === editingAccount.id ? { ...data, id: editingAccount.id } : a));
+  setEditingAccount(null);
+}}
+        onDelete={async () => {
+  if (window.confirm(`Delete ${editingAccount.name}? This cannot be undone.`)) {
+    await fetch(`/api/accounts/${editingAccount.id}`, { method: 'DELETE' });
+    setAccounts(prev => prev.filter(a => a.id !== editingAccount.id));
+    setAnalysisMap(prev => { const n = {...prev}; delete n[editingAccount.id]; return n; });
+    setNewsMap(prev => { const n = {...prev}; delete n[editingAccount.id]; return n; });
+    setSelectedId(accounts.find(a => a.id !== editingAccount.id)?.id);
+    setEditingAccount(null);
+  }
+}}
       />}
 
       {/* Header */}
