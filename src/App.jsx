@@ -357,15 +357,23 @@ const AccountFormModal = ({initial,title,submitLabel,onSubmit,onClose,onDelete=n
 
 // ── Password modal ──────────────────────────────────────────────
 const PasswordModal = ({onSuccess,onClose}) => {
-  const [pw,setPw]=useState(''),[ err,setErr]=useState(false);
-  const attempt=()=>{if(pw==='Milo'){onSuccess();onClose();}else{setErr(true);setPw('');}};
+  const [pw,setPw]=useState(''),[err,setErr]=useState(false),[loading,setLoading]=useState(false);
+  const attempt=async()=>{
+    setLoading(true);
+    try{
+      const res=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
+      if(res.ok){onSuccess();onClose();}
+      else{setErr(true);setPw('');}
+    }catch{setErr(true);setPw('');}
+    setLoading(false);
+  };
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
       <div className="bg-zinc-950 border border-zinc-800 rounded-lg w-full max-w-xs p-6">
         <div className="flex items-center gap-2 mb-5"><Lock className="w-4 h-4 text-amber-400"/><h2 className="text-base text-zinc-100" style={{fontFamily:'Instrument Serif, serif'}}>Edit Mode</h2></div>
-        <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr(false);}} onKeyDown={e=>e.key==='Enter'&&attempt()} placeholder="Password" className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-amber-400/50 mb-2"/>
+        <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr(false);}} onKeyDown={e=>e.key==='Enter'&&!loading&&attempt()} placeholder="Password" className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-amber-400/50 mb-2"/>
         {err&&<p className="text-xs text-rose-400 mb-3">Incorrect password.</p>}
-        <div className="flex gap-2 mt-3"><button onClick={onClose} className="flex-1 px-3 py-2 text-sm text-zinc-400 hover:text-zinc-200">Cancel</button><button onClick={attempt} className="flex-1 px-3 py-2 bg-amber-400 text-zinc-950 text-sm font-medium rounded hover:bg-amber-300">Unlock</button></div>
+        <div className="flex gap-2 mt-3"><button onClick={onClose} className="flex-1 px-3 py-2 text-sm text-zinc-400 hover:text-zinc-200">Cancel</button><button onClick={attempt} disabled={loading} className="flex-1 px-3 py-2 bg-amber-400 text-zinc-950 text-sm font-medium rounded hover:bg-amber-300 disabled:opacity-50">Unlock</button></div>
       </div>
     </div>
   );
