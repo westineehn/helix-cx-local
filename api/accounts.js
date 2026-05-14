@@ -51,7 +51,7 @@ const toAccount = (row) => ({
   },
 });
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // GET /api/accounts — return all accounts
   if (req.method === 'GET') {
     const { data, error } = await supabase
