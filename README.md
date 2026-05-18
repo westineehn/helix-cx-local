@@ -1,6 +1,6 @@
 # Helix.cs — Enterprise Customer Health Engine
 
-An AI-powered customer success tool that scores account health, surfaces churn risk, identifies expansion signals, and generates prescriptive next actions — built to demonstrate how I think about CS strategy, not just describe it.
+An AI-powered customer success platform that scores account health, surfaces churn risk, identifies expansion signals, and generates prescriptive next actions — built to demonstrate how I think about CS strategy, not just describe it.
 
 **[Live Demo →](https://helix-cx.vercel.app)**
 
@@ -8,7 +8,7 @@ An AI-powered customer success tool that scores account health, surfaces churn r
 
 ## What It Does
 
-Select any account from a portfolio of six real enterprise companies. Hit **Analyze with AI** and the tool runs two sequential Claude calls against live account signals, producing a full health assessment in under 15 seconds.
+Select any account from a portfolio of enterprise companies. Hit **Analyze with AI** and the platform runs two sequential Claude calls against live account signals, producing a full health assessment in under 15 seconds.
 
 **Call 1 — Loads fast (~3-5s):**
 - 0–100 health score
@@ -27,6 +27,48 @@ The two-call split means the score and priority actions appear immediately while
 
 ---
 
+## Architecture
+
+```
+Browser (React + Next.js)
+    │
+    ├── /api/accounts          ← Full portfolio CRUD
+    ├── /api/accounts/[id]     ← Single account read/update/delete
+    ├── /api/accounts/at-risk  ← MCP-ready: at-risk accounts + urgency scoring
+    ├── /api/accounts/expansion← MCP-ready: expansion accounts + opportunity scoring
+    ├── /api/analysis/[id]     ← Analysis cache read/write
+    ├── /api/analyze           ← Vercel serverless → Anthropic API (2-call pipeline)
+    └── /api/news              ← Vercel serverless → Serper + Anthropic API
+    
+Persistence: Supabase (PostgreSQL)
+    ├── accounts               ← Full account data, all signals
+    ├── account_analysis       ← Cached AI analysis, survives deploys
+    └── account_news           ← Cached news summaries per account
+```
+
+All API keys are server-side only — never exposed to the browser.
+
+---
+
+## MCP Server
+
+Helix exposes an [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that wraps the core API endpoints, making the platform callable by autonomous AI agents.
+
+**Available MCP tools:**
+- `get_all_accounts` — Full portfolio with health signals
+- `get_at_risk_accounts` — At-risk accounts pre-scored by urgency
+- `get_expansion_accounts` — Expansion candidates pre-scored by opportunity
+- `get_account_analysis` — Cached AI analysis for any account
+
+This is the architectural layer that separates Helix from a static dashboard. With MCP, a CSM can query their portfolio in natural language, or a scheduled agent can generate a daily brief — without touching the UI.
+
+**Example agent use cases:**
+- *"Which accounts need attention before end of quarter?"*
+- *"Summarize renewal risk across my portfolio"*
+- *"What's the expansion opportunity for accounts over 80% utilization?"*
+
+---
+
 ## Signal Architecture
 
 Seven weighted signals feed every health score:
@@ -41,7 +83,7 @@ Seven weighted signals feed every health score:
 | **Renewal Outlook** | 10% | CSM probability assessment + competitive exposure |
 | **External** | 5% | Live market signals via Serper |
 
-Support metrics (tickets, CSAT) feed the AI analysis context but don't get a dedicated card — they're lagging indicators, not leading ones.
+Support metrics (tickets, CSAT) feed the AI analysis context but don't get a dedicated scoring card — they're lagging indicators, not leading ones.
 
 ---
 
@@ -65,9 +107,7 @@ Each account carries a dedicated Renewal Outlook panel showing four CSM-set fiel
 - **Contract Type** — Annual / Multi-year
 - **Auto-Renew** — Yes / No — Manual
 
-Renewal probability and competitive exposure feed directly into the category scoring formula — an account with "At Risk" probability and "Active eval" exposure accumulates risk points that can push it from Stable into At Risk regardless of utilization.
-
-All four fields are also passed as context into every AI analysis call, so health scores and risk flags reflect the full commercial picture.
+Renewal probability and competitive exposure feed directly into the category scoring formula and are passed as context into every AI analysis call — health scores and risk flags reflect the full commercial picture.
 
 ---
 
@@ -75,28 +115,13 @@ All four fields are also passed as context into every AI analysis call, so healt
 
 Each account has a live **External Signal** card powered by [Serper](https://serper.dev).
 
-Hit the refresh icon and the tool:
+Hit the refresh icon and the platform:
 1. Searches Google News for the company name + universal keywords (`layoffs OR earnings OR acquisition OR leadership OR restructuring OR funding OR partnership OR expansion`)
 2. Pulls the top 3 articles from the last 30 days
 3. Sends headlines to Claude for a 1-2 sentence synthesis focused on CS impact
 4. Displays the summary with clickable source links and a freshness timestamp
 
 The live summary automatically replaces the static external field in the next analysis run — health scores reason against what's actually happening today.
-
----
-
-## Portfolio
-
-Six real enterprise accounts spanning the full health and commercial spectrum:
-
-| Account | Category | Key Signal |
-|---|---|---|
-| **Anthropic** | Expansion P1 | $30B Series G, enterprise subs 4x YTD, CTO requesting capacity scope |
-| **Netflix** | Expansion P1 | Q1 revenue +16% YoY, ad tier scaling to $3B, multi-year auto-renew |
-| **FedEx** | Stable P2 | Q3 earnings beat, Network 2.0 delivering $1B+ savings, strong exec relationship |
-| **Allstate** | At Risk P2 | Agency consolidation, champion disrupted, manual annual renewal, rumored competitive eval |
-| **Nike** | At Risk P2 | Second layoff round 2026, DTC revenue declining, Win Now restructuring pressure, at-risk probability |
-| **Oracle** | At Risk P1 | 20-30K layoffs, new co-CEOs, vendor budget freeze, annual manual renewal, active competitive eval |
 
 ---
 
@@ -110,39 +135,19 @@ Accounts are automatically categorized across three tiers based on weighted sign
 
 **Stable** — tracking well across all dimensions. Sub-prioritized P1–P3 by ARR and utilization health.
 
-Renewal probability and competitive exposure contribute directly to the At Risk score — a "medium" probability adds 1 point, "at-risk" adds 2. "Rumored" competitive exposure adds 1, "active-eval" adds 2.
-
 ---
 
 ## Tech Stack
 
 | Layer | Tech |
 |---|---|
-| Frontend | React + Vite + Tailwind CSS |
-| AI Analysis | Claude Sonnet (claude-sonnet-4-5) via Anthropic API |
+| Frontend | React + Next.js + Tailwind CSS |
+| AI Analysis | Claude Sonnet via Anthropic API |
 | Live News | Serper API (Google Search) |
 | Backend | Vercel Serverless Functions |
-| Persistence | localStorage (accounts, analyses, news — keyed per version) |
-| Security | All API keys server-side only — never exposed to browser |
-
----
-
-## Architecture
-
-```
-Browser (React)
-    │
-    ├── /api/analyze  ← Vercel serverless → Anthropic API
-    │                   Two sequential calls per analysis:
-    │                   Call 1: score + TL;DR + actions + signal scores
-    │                   Call 2: risk flags + expansion + QBR + coach script
-    │
-    └── /api/news     ← Vercel serverless
-                          → Serper API (fetch headlines)
-                          → Anthropic API (synthesize summary)
-```
-
-Both API keys live in Vercel environment variables. The news fetch and health analysis are decoupled — refresh news independently without triggering a full re-analysis.
+| Persistence | Supabase (PostgreSQL) |
+| Agent Layer | MCP Server wrapping core API endpoints |
+| Security | All API keys server-side only, never exposed to browser |
 
 ---
 
@@ -154,7 +159,7 @@ Both API keys live in Vercel environment variables. The news fetch and health an
 
 **Stale analysis warning** — analyses older than 48 hours surface an amber warning prompting a refresh.
 
-**Persistent state** — accounts, analyses, and news data survive page refreshes via localStorage. Re-opening the tab picks up exactly where you left off.
+**Persistent state** — accounts and analyses are stored in Supabase and survive deploys, device switches, and page refreshes.
 
 ---
 
@@ -170,14 +175,17 @@ Create a `.env` file:
 ```
 ANTHROPIC_API_KEY=your_key_here
 SERPER_API_KEY=your_key_here
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
 ```bash
 npm run dev
 ```
 
-Get your Anthropic API key at `console.anthropic.com`.  
-Get your Serper API key at `serper.dev` (free tier: 2,500 queries/month).
+- Anthropic API key: `console.anthropic.com`
+- Serper API key: `serper.dev` (free tier: 2,500 queries/month)
+- Supabase project: `supabase.com` (free tier is sufficient)
 
 ---
 
@@ -186,6 +194,8 @@ Get your Serper API key at `serper.dev` (free tier: 2,500 queries/month).
 I manage enterprise portfolios with technical buyers — CTOs, VPs of Engineering — where the difference between renewing and churning often comes down to reading weak signals early and acting before the conversation gets hard.
 
 Most health scoring tools give you a number. This one shows you the math behind it, tells you what to do about it, and tells you what to say when you pick up the phone — with live market context pulled the same day.
+
+The MCP server is the next layer: moving from a tool a CSM consults to a platform that surfaces the right account at the right time without being asked.
 
 It's also a live example of how I use AI in my CS workflow: not to replace judgment, but to compress the time between signal and action.
 
